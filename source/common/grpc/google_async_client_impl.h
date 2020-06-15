@@ -297,6 +297,8 @@ private:
   // Have we entered CQ draining state? If so, we're just waiting for all our
   // ops on the CQ to drain away before freeing the stream.
   bool draining_cq_{};
+  // Is stream closed?
+  bool stream_closed_{};
   // Count of the tags in-flight. This must hit zero before the stream can be
   // freed.
   uint32_t inflight_tags_{};
@@ -336,6 +338,8 @@ private:
   RawAsyncRequestCallbacks& callbacks_;
   Tracing::SpanPtr current_span_;
   Buffer::InstancePtr response_;
+  // Is request canceled?
+  bool canceled_{};
 };
 
 } // namespace Grpc

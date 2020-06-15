@@ -197,6 +197,9 @@ void GoogleAsyncStreamImpl::initialize(bool /*buffer_body_for_retry*/) {
 void GoogleAsyncStreamImpl::notifyRemoteClose(Status::GrpcStatus grpc_status,
                                               Http::ResponseTrailerMapPtr trailing_metadata,
                                               const std::string& message) {
+  if (stream_closed_) {
+    return;
+  }
   if (grpc_status > Status::WellKnownGrpcStatus::MaximumKnown || grpc_status < 0) {
     ENVOY_LOG(error, "notifyRemoteClose invalid gRPC status code {}", grpc_status);
     // Set the grpc_status as InvalidCode but increment the Unknown stream to avoid out-of-range
@@ -210,6 +213,7 @@ void GoogleAsyncStreamImpl::notifyRemoteClose(Status::GrpcStatus grpc_status,
   callbacks_.onReceiveTrailingMetadata(trailing_metadata ? std::move(trailing_metadata)
                                                          : Http::ResponseTrailerMapImpl::create());
   callbacks_.onRemoteClose(grpc_status, message);
+  stream_closed_ = true;
 }
 
 void GoogleAsyncStreamImpl::sendMessageRaw(Buffer::InstancePtr&& request, bool end_stream) {
@@ -393,6 +397,11 @@ void GoogleAsyncStreamImpl::cleanup() {
     return;
   }
   draining_cq_ = true;
+
+  // callback may not be notified, this could happen if stream is terminated
+  // by GoogleAsyncClientThreadLocal dtor
+  notifyRemoteClose(Status::WellKnownGrpcStatus::Internal, nullptr, EMPTY_STRING);
+
   ctxt_.TryCancel();
   if (LinkedObject<GoogleAsyncStreamImpl>::inserted()) {
     // We take ownership of our own memory at this point.
@@ -425,6 +434,7 @@ void GoogleAsyncRequestImpl::initialize(bool buffer_body_for_retry) {
 }
 
 void GoogleAsyncRequestImpl::cancel() {
+  canceled_ = true;
   current_span_->setTag(Tracing::Tags::get().Status, Tracing::Tags::get().Canceled);
   current_span_->finishSpan();
   resetStream();
@@ -446,6 +456,11 @@ void GoogleAsyncRequestImpl::onReceiveTrailingMetadata(Http::ResponseTrailerMapP
 
 void GoogleAsyncRequestImpl::onRemoteClose(Grpc::Status::GrpcStatus status,
                                            const std::string& message) {
+  if (canceled_) {
+    // If this request is canceled explicitly by calling its cancel() method,
+    // span is already finished, and it's not needed to call callbacks.
+    return;
+  }
   current_span_->setTag(Tracing::Tags::get().GrpcStatusCode, std::to_string(status));
 
   if (status != Grpc::Status::WellKnownGrpcStatus::Ok) {

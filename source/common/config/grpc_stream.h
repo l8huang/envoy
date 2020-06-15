@@ -124,7 +124,11 @@ public:
 
 private:
   void setRetryTimer() {
-    retry_timer_->enableTimer(std::chrono::milliseconds(backoff_strategy_->nextBackOffMs()));
+    if (retry_timer_) {
+      // retry_timer_ could be null, because destructor releases it before async_client_,
+      // which may cause onRemoteClose() being called.
+      retry_timer_->enableTimer(std::chrono::milliseconds(backoff_strategy_->nextBackOffMs()));
+    }
   }
 
   GrpcStreamCallbacks<ResponseProto>* const callbacks_;

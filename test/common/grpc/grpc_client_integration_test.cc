@@ -35,6 +35,10 @@ TEST_P(GrpcClientIntegrationTest, BasicStream) {
 TEST_P(GrpcClientIntegrationTest, ClientDestruct) {
   initialize();
   auto stream = createStream(empty_metadata_);
+  if (clientType() == ClientType::GoogleGrpc) {
+    EXPECT_CALL(*stream, onReceiveTrailingMetadata_(_));
+    EXPECT_CALL(*stream, onRemoteClose(_, _));
+  }
   stream->sendRequest();
   grpc_client_.reset();
 }
@@ -367,6 +371,10 @@ TEST_P(GrpcClientIntegrationTest, ResetAfterCloseLocal) {
   auto stream = createStream(empty_metadata_);
   stream->grpc_stream_->closeStream();
   ASSERT_TRUE(stream->fake_stream_->waitForEndStream(dispatcher_helper_.dispatcher_));
+  if (clientType() == ClientType::GoogleGrpc) {
+    EXPECT_CALL(*stream, onReceiveTrailingMetadata_(_));
+    EXPECT_CALL(*stream, onRemoteClose(_, _));
+  }
   stream->grpc_stream_->resetStream();
   dispatcher_helper_.dispatcher_.run(Event::Dispatcher::RunType::NonBlock);
   ASSERT_TRUE(stream->fake_stream_->waitForReset());
