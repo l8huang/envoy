@@ -131,6 +131,71 @@ TEST_P(StatsIntegrationTest, WithTagSpecifierWithFixedValue) {
   EXPECT_EQ(live->tags()[0].value_, "xxx");
 }
 
+
+// TODO(l8huang) add test case here
+TEST_P(StatsIntegrationTest, CompoundClusterName) {
+  config_helper_.addConfigModifier([&](envoy::config::bootstrap::v3::Bootstrap& bootstrap) -> void {
+
+    auto static_resources = bootstrap.mutable_static_resources();
+    auto cluster = TestUtility::parseYaml<envoy::config::cluster::v3::Cluster>(R"EOF(
+      name: xds-grpc
+      alt_stat_name: "xds-grpc.app_inst.app-inst:env-prod.app_svc.app-svc:env-prod"
+      connect_timeout: 5s
+      type: STATIC
+      load_assignment:
+        cluster_name: xds-grpc
+        endpoints:
+        - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: 127.0.0.1
+                  port_value: 8080
+      lb_policy: ROUND_ROBIN
+    )EOF");
+    static_resources->add_clusters()->MergeFrom(cluster);
+
+    bootstrap.mutable_stats_config()->mutable_use_all_default_tags()->set_value(false);
+
+
+    auto tag_specifier = bootstrap.mutable_stats_config()->mutable_stats_tags()->Add();
+    tag_specifier->set_tag_name("cluster_name");
+    tag_specifier->set_regex(R"(^cluster\.((.+?(\..+?\.svc\.cluster\.local)?)\.))");
+
+    tag_specifier = bootstrap.mutable_stats_config()->mutable_stats_tags()->Add();
+    tag_specifier->set_tag_name("application_instance");
+    //                         "^http(?=\.).*?\.user_agent\.((.+?)\.)\w+?$"
+    tag_specifier->set_regex(R"(^cluster(?=\.).*?(app_inst\.(.+?)\.))");
+
+    tag_specifier = bootstrap.mutable_stats_config()->mutable_stats_tags()->Add();
+    tag_specifier->set_tag_name("application_service");
+    tag_specifier->set_regex(R"(^cluster(?=\.).*?(app_svc\.(.+?)\.))");
+  });
+
+  initialize();
+  /*
+  auto counters = test_server_->counters();
+  for (auto& c : counters) {
+    std::cout << c->name() << std::endl;
+  }
+  */
+  // Any : in the cluster name will be converted to _ when emitting statistics.
+  // the convertion is done by Envoy::Stats::Utility::sanitizeStatsName() in source/common/stats/utility.cc 
+  auto counter = test_server_->counter("cluster.xds-grpc.app_inst.app-inst_env-prod.app_svc.app-svc_env-prod.upstream_cx_total");
+  //auto counter = test_server_->counter("cluster.xds-grpc.app_inst.app-inst:env-prod.app_svc.app-svc:env-prod.upstream_cx_total");
+  std::cout << "tag number: " << counter->tags().size() << std::endl;
+  for (auto& t : counter->tags()) {
+    std::cout << t.name_ << ": " << t.value_ << std::endl;
+  }
+
+  /*
+  EXPECT_EQ(counter->tags().size(), 1);
+  EXPECT_EQ(counter->tags()[0].name_, "cluster_name");
+  EXPECT_EQ(counter->tags()[0].value_, "xds-grpc");
+  */
+}
+
+
 // TODO(cmluciano) Refactor once https://github.com/envoyproxy/envoy/issues/5624 is solved
 // TODO(cmluciano) Add options to measure multiple workers & without stats
 // This class itself does not add additional tests. It is a helper for use in other tests measuring

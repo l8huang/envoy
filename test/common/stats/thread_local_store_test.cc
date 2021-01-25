@@ -397,6 +397,7 @@ TEST_F(StatsThreadLocalStoreTest, BasicScope) {
   {
     StatNameManagedStorage storage("c3", symbol_table_);
     Counter& counter = scope1->counterFromStatNameWithTags(StatName(storage.statName()), tags);
+    std::cout << counter.name() << std::endl;
     EXPECT_EQ(expectedTags, counter.tags());
     EXPECT_EQ(&counter, &scope1->counterFromStatNameWithTags(StatName(storage.statName()), tags));
   }

@@ -112,6 +112,7 @@ TEST_F(StatsIsolatedStoreImplTest, All) {
   EXPECT_EQ("scope1.foo.bar", scope2->counterFromString("bar").name());
 
   // Validate that we sanitize away bad characters in the stats prefix.
+  // lhuang8: where does the replacement happen?
   ScopePtr scope3 = scope1->createScope(std::string("foo:\0:.", 7));
   EXPECT_EQ("scope1.foo___.bar", scope3->counterFromString("bar").name());
 
