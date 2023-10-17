@@ -856,6 +856,84 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
 
     if (config.disableStatefulSessionResumption()) {
       SSL_CTX_set_session_cache_mode(ctx.ssl_ctx_.get(), SSL_SESS_CACHE_OFF);
+    } else {
+      // l8huang
+
+      int mode = SSL_CTX_get_session_cache_mode(ctx.ssl_ctx_.get());
+      ENVOY_LOG(info, "ssl session cache mode: {:x}", mode);
+
+      SSL_CTX_set_session_cache_mode(ctx.ssl_ctx_.get(), mode | SSL_SESS_CACHE_NO_INTERNAL_STORE);
+
+      // the ctor is called by main thread by buildFilterChains()
+      // the SSL callbacks are called in worker thread.
+      SSL_CTX_sess_set_new_cb(
+          ctx.ssl_ctx_.get(), [](SSL* ssl, SSL_SESSION* session) -> int {
+            (void)ssl;
+            // see ConnectionInfoImplBase::sessionId()
+            std::string session_id;
+            unsigned int session_id_length = 0;
+            const uint8_t* p = SSL_SESSION_get_id(session, &session_id_length);
+            session_id = Hex::encode(p, session_id_length);
+
+            std::string master_key;
+            unsigned int master_key_length = 0;
+            uint8_t buf[SSL_MAX_MASTER_KEY_LENGTH ] = {0};
+            master_key_length = SSL_SESSION_get_master_key(session, buf, SSL_MAX_MASTER_KEY_LENGTH);
+            master_key = Hex::encode(buf, master_key_length);
+
+            ENVOY_LOG(info, "new ssl session: id:{}, key:{}", session_id, master_key);
+            ContextImpl* context_impl =
+                static_cast<ContextImpl*>(SSL_CTX_get_app_data(SSL_get_SSL_CTX(ssl)));
+            ServerContextImpl* server_context_impl = dynamic_cast<ServerContextImpl*>(context_impl);
+            server_context_impl->session_cache_.emplace(session_id, session);
+
+            return 1; // return 1 to take over session ownership and remove it from inner cache
+          });
+
+      SSL_CTX_sess_set_get_cb(
+          ctx.ssl_ctx_.get(), [](SSL* ssl, const uint8_t *id, int id_len, 
+                                 int *out_copy) -> SSL_SESSION * {
+          (void)out_copy; // not used when return magic pending sessoin
+          (void)ssl;
+          std::string session_id;
+          session_id = Hex::encode(id, id_len);
+
+          ENVOY_LOG(info, "missing ssl session: id:{}", session_id);
+          ContextImpl* context_impl =
+              static_cast<ContextImpl*>(SSL_CTX_get_app_data(SSL_get_SSL_CTX(ssl)));
+          ServerContextImpl* server_context_impl = dynamic_cast<ServerContextImpl*>(context_impl);
+
+          auto callbacks =
+          static_cast<Network::TransportSocketCallbacks*>(SSL_get_ex_data(ssl, sslSocketIndex()));
+          auto& conn = callbacks->connection();
+
+          server_context_impl->timer_ = conn.dispatcher().createTimer(
+              [ssl, server_context_impl, callbacks, session_id](){
+              ENVOY_LOG(info, "timeout, cache size {}, session: {}",
+                server_context_impl->session_cache_.size(), session_id);
+
+              auto it = server_context_impl->session_cache_.find(session_id);
+              if (it != server_context_impl->session_cache_.end()) {
+                ENVOY_LOG(info, "use cached session: {}", session_id);
+                
+                SSL_CTX_add_session(SSL_get_SSL_CTX(ssl), it->second);
+              }
+
+              callbacks->ioHandle().activateFileEvents(Event::FileReadyType::Read);
+          });
+
+          server_context_impl->timer_->enableTimer(std::chrono::seconds(5));
+
+          // auto it = server_context_impl->session_cache_.find(session_id);
+          // if (it != server_context_impl->session_cache_.end()) {
+          //   ENVOY_LOG(info, "find cached session: {}", session_id);
+          //   return it->second;
+          // } else {
+          //   return nullptr;
+          // }
+
+          return SSL_magic_pending_session_ptr();
+        });
     }
 
     if (config.sessionTimeout() && !config.capabilities().handles_session_resumption) {

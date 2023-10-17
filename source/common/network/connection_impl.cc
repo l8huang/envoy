@@ -101,7 +101,7 @@ ConnectionImpl::ConnectionImpl(Event::Dispatcher& dispatcher, ConnectionSocketPt
       dispatcher_, [this](uint32_t events) -> void { onFileEvent(events); }, trigger,
       Event::FileReadyType::Read | Event::FileReadyType::Write);
 
-  transport_socket_->setTransportSocketCallbacks(*this);
+  transport_socket_->setTransportSocketCallbacks(*this); // l8huang
 
   // TODO(soulxu): generate the connection id inside the addressProvider directly,
   // then we don't need a setter or any of the optional stuff.
