@@ -123,6 +123,7 @@ proto_library(
         "//envoy/config/retry/previous_hosts/v2:pkg",
         "//envoy/config/route/v3:pkg",
         "//envoy/config/tap/v3:pkg",
+        "//envoy/config/tls_session_cache/v3:pkg",
         "//envoy/config/trace/v3:pkg",
         "//envoy/config/upstream/local_address_selector/v3:pkg",
         "//envoy/data/accesslog/v3:pkg",
