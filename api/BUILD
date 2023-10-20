@@ -341,6 +341,7 @@ proto_library(
         "//envoy/service/secret/v3:pkg",
         "//envoy/service/status/v3:pkg",
         "//envoy/service/tap/v3:pkg",
+        "//envoy/service/tls_session_cache/v3:pkg",
         "//envoy/service/trace/v3:pkg",
         "//envoy/type/http/v3:pkg",
         "//envoy/type/matcher/v3:pkg",

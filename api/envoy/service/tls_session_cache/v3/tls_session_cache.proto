@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package envoy.service.tls_session_cache.v3;
+
+import "udpa/annotations/status.proto";
+import "validate/validate.proto";
+
+option java_package = "io.envoyproxy.envoy.service.tls_session_cache.v3";
+option java_outer_classname = "TlsSessionCacheProto";
+option java_multiple_files = true;
+option go_package = "github.com/envoyproxy/go-control-plane/envoy/service/tls_session_cache/v3;tls_session_cachev3";
+option (udpa.annotations.file_status).package_version_status = ACTIVE;
+
+// [#protodoc-title: TLS session cache service]
+service TlsSessionCacheService {
+  rpc StoreTlsSession(StoreTlsSessionRequest) returns (StoreTlsSessionResponse) {
+  }
+
+  rpc FetchTlsSession(FetchTlsSessionRequest) returns (FetchTlsSessionResponse) {
+  }
+}
+
+//  Message for adding a TLS session to cache.
+message StoreTlsSessionRequest {
+  // The TLS session id
+  string session_id = 1;
+
+  string session_key = 2;
+}
+
+// A response from a FetchTlsSessionRequest call.
+message StoreTlsSessionResponse {
+  enum Code {
+    // The response code to notify that the session id is added .
+    OK = 0;
+
+    // The session id already exits in the session cache, unlikely to happen.
+    ALEADY_EXIST = 2;
+  }
+
+  Code code = 1;
+}
+
+//  Message for fetching a TLS session.
+message FetchTlsSessionRequest {
+  // The TLS session id which the request looking for.
+  string session_id = 1;
+}
+
+// A response from a FetchTlsSessionRequest call.
+message FetchTlsSessionResponse {
+  enum Code {
+    // The response code to notify that the session id is found and session returned.
+    OK = 0;
+
+    // The response code to notify that the session id is not found in session cache.
+    NOT_FOUND = 1;
+  }
+
+  Code code = 1;
+
+  string session_id = 2;
+
+  string session_key = 3;
+}
