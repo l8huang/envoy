@@ -55,6 +55,9 @@ void ActiveStreamListenerBase::newConnection(Network::ConnectionSocketPtr&& sock
       std::make_shared<FilterChainInfoImpl>(filter_chain->name()));
 
   auto transport_socket = filter_chain->transportSocketFactory().createDownstreamTransportSocket();
+  // if (transport_socket->ssl()) {
+  //   auto ssl = transport_socket->ssl()->ssl();
+  // }
   auto server_conn_ptr = dispatcher().createServerConnection(
       std::move(socket), std::move(transport_socket), *stream_info);
   if (const auto timeout = filter_chain->transportSocketConnectTimeout();

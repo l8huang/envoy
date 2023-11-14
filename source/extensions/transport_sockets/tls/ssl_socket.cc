@@ -102,7 +102,7 @@ SslSocket::ReadResult SslSocket::sslReadIntoSlice(Buffer::RawSlice& slice) {
 Network::IoResult SslSocket::doRead(Buffer::Instance& read_buffer) {
   if (info_->state() != Ssl::SocketState::HandshakeComplete &&
       info_->state() != Ssl::SocketState::ShutdownSent) {
-    PostIoAction action = doHandshake();
+    PostIoAction action = doHandshake(); // this may trigger session miss callback again -- lhuang8
     if (action == PostIoAction::Close || info_->state() != Ssl::SocketState::HandshakeComplete) {
       // end_stream is false because either a hard error occurred (action == Close) or
       // the handshake isn't complete, so a half-close cannot occur yet.

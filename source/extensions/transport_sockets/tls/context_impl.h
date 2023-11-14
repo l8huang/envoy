@@ -189,6 +189,7 @@ public:
   // ClientHello details. This is made public for use by custom TLS extensions who want to
   // manually create and use this as a client hello callback.
   enum ssl_select_cert_result_t selectTlsContext(const SSL_CLIENT_HELLO* ssl_client_hello);
+  Event::TimerPtr timer_; // XXX: only for POC -- l8huang
 
 private:
   // Currently, at most one certificate of a given key type may be specified for each exact
@@ -218,6 +219,8 @@ private:
   ServerNamesMap server_names_map_;
   bool has_rsa_{false};
   bool full_scan_certs_on_sni_mismatch_;
+
+  std::unordered_map<std::string, SSL_SESSION*> session_cache_;
 };
 
 } // namespace Tls

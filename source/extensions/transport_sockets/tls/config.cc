@@ -30,7 +30,7 @@ ProtobufTypes::MessagePtr UpstreamSslSocketFactory::createEmptyConfigProto() {
 
 LEGACY_REGISTER_FACTORY(UpstreamSslSocketFactory,
                         Server::Configuration::UpstreamTransportSocketConfigFactory, "tls");
-
+// l8huang: create downstream ssl socket with config
 Network::DownstreamTransportSocketFactoryPtr
 DownstreamSslSocketFactory::createTransportSocketFactory(
     const Protobuf::Message& message, Server::Configuration::TransportSocketFactoryContext& context,
