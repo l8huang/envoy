@@ -179,6 +179,7 @@ envoy_cc_library(
         "//source/extensions/transport_sockets/tls/cert_validator:cert_validator_lib",
         "//source/extensions/transport_sockets/tls/ocsp:ocsp_lib",
         "//source/extensions/transport_sockets/tls/private_key:private_key_manager_lib",
+        "//source/extensions/transport_sockets/tls/session_cache:tls_session_cache_lib",
         "@envoy_api//envoy/admin/v3:pkg_cc_proto",
         "@envoy_api//envoy/type/matcher/v3:pkg_cc_proto",
     ],
